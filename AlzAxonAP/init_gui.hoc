@@ -1,0 +1,95 @@
+// init_gui.hoc allows the choice of simulations to run associated with
+// the paper: Axonal spheroids and conduction defects in Alzheimer’s
+// disease reversed by PLD3 modulation. Peng Yuan, Mengyang
+// Zhang, Lei Tong, Thomas M. Morse, Robert A. McDougal, Hui Ding,
+// Diane Chan, Yifei Cai, Jaime Grutzendler
+{
+load_file("nrngui.hoc")
+load_file("alz_axon_serial_GUI.hoc")
+}
+{
+xpanel("Yuan, Zhang, Tong, et al")
+  xlabel("Supplementary Material")
+  xlabel("Extended Data Figure 2 examples")
+  xlabel("Click on a button to run")
+  xbutton("Ext. Fig. 2a)left Normal","ext_fig_2a_left()")
+  xbutton("Ext. Fig. 2a)middle Delayed","ext_fig_2a_middle()")
+  xbutton("Ext. Fig. 2a)left Blocked","ext_fig_2a_right()")
+  xbutton("Ext. Fig. 2b) Blocked, then delayed AP from 20 Hz input","ext_fig_2b()")
+  xlabel("Ext. Fig. 2e)top Single AP input long run (day)")
+  xlabel("  Please see the readme for instructions")
+  xlabel("Ext. Fig. 2e)bottom 20Hz AP input long run (day)")
+  xlabel("  Please see the readme for instructions")
+  xbutton("Quit","quit()")
+xpanel(400,400)
+}
+
+ran_2b=0
+proc ext_fig_2a_left() {
+if (ran_2b) {
+ic.amp=0.02
+ic.dur=1
+ic.del=100
+objref ic_amp_vec
+}
+Can {L=1e-3
+diam=1e-3}
+tstop=150
+init()
+run()
+if (ran_2b) {
+Graph[0].xaxis(0,150)
+Graph[0].xaxis(0)
+Graph[0].exec_menu("View = plot")
+}
+}
+proc ext_fig_2a_middle() {
+Can {L=29
+diam=29}
+tstop=150
+ic.dur=1
+init()
+run()
+if (ran_2b) {
+Graph[0].xaxis(0,150)
+Graph[0].xaxis(0)
+Graph[0].exec_menu("View = plot")
+}
+}
+proc ext_fig_2a_right() {
+Can {L=40
+diam=40}
+tstop=150
+ic.dur=1
+init()
+run()
+if (ran_2b) {
+Graph[0].xaxis(0,150)
+Graph[0].xaxis(0)
+Graph[0].exec_menu("View = plot")
+}
+}
+proc ext_fig_2b() {
+Can {L=53
+diam=53}
+xopen("make_pulse.hoc")
+ic.dur=1e7
+{ic_amp_vec.play(&ic.amp, dt) }
+tstop=1300
+init()
+run()
+{
+Graph[0].exec_menu("View = plot")
+Graph[0].xaxis(3)        
+Graph[0].xaxis(100, 1300)
+Graph[0].yaxis(-80, 50)
+}
+ran_2b=-1 // -1 is true meaning will need to readjust axis for earlier figs
+}
+proc ext_fig_2e_top() {
+print "instructions"
+}
+proc ext_fig_2e_bottom() {
+print "instructions"
+}
+

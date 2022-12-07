@@ -1,0 +1,13 @@
+
+strdef tmpstr
+objref tmpfile
+tmpfile = new File()
+proc write_vec() { // $s1 is filename, $o2 is vector to write
+  tmpstr = $s1
+  tmpfile.wopen(tmpstr)
+  for i=0, $o2.size()-1 {
+    tmpfile.printf("%g\n",$o2.x[i])
+  }
+  tmpfile.close()
+}
+

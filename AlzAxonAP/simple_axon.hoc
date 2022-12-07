@@ -1,0 +1,61 @@
+create axon, Can, Stick
+
+ignored_diam = 0.3 // note these diameters are overwritten by alz_axon.hoc
+
+axon { nseg=19  L=565.723  Ra=50
+	/*location 0 attached to cell 0*/
+	/* First segment only */
+	insert capacitance { cm=1}
+	insert morphology { diam=ignored_diam } // 0.397111}
+	insert nax { sh_nax=0 gbar_nax=0.125}
+	insert na_ion { ena=50}
+	insert kdr { gkdrbar_kdr=0.01}
+	insert k_ion { ek=-77}
+}
+
+// store original conductance density values for later modifications
+axon {
+  gbar_nax_orig = gbar_nax
+  gkdrbar_kdr_orig = gkdrbar_kdr
+}
+
+Can { nseg=1  L=5  Ra=50
+	Stick connect Can (0), 1
+	/* First segment only */
+	insert morphology { diam=ignored_diam } // 5
+	insert capacitance { cm=1}
+    // assume passive (g's=0 below as default)
+	insert nax { sh_nax=0 gbar_nax=0}
+	insert na_ion { ena=50}
+	insert kdr { gkdrbar_kdr=0}
+	insert k_ion { ek=-77}
+	
+}
+Stick { nseg=1  L=5  Ra=50
+	axon connect Stick (0), 0.5
+	/* First segment only */
+	insert morphology { diam=ignored_diam} //0.3
+	insert capacitance { cm=1}
+    // assume passive (g's=0 below as default)
+	insert nax { sh_nax=0 gbar_nax=0}
+	insert na_ion { ena=50}
+	insert kdr { gkdrbar_kdr=0}
+	insert k_ion { ek=-77}
+}
+
+// places pas leak channel everywhere
+forall {
+  	insert pas { g_pas=3.16228e-05 e_pas=-70.525}
+}
+
+/*
+create soma
+soma {
+  L=1
+  diam=5
+  insert pas
+  e_pas = -70
+} // a load to put on axon, increase soma size to mimick dend load
+
+connect soma(1), axon(0)
+*/

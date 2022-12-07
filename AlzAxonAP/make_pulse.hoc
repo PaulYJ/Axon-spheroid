@@ -1,0 +1,76 @@
+/* an IClamp at the 0 end of the axon will generate a 20 Hz train of APs that
+will pass a dystrophy (PAAS) of varying size.
+
+objref ic, ic_amp_vec
+axon ic = new IClamp(0)
+ic.dur=1e9 // new method plays a vec into amp, instead of dur 0.2
+ic.amp=2 // nA use 20x orig value 0.1 which will blast little diam axons and create an AP in the big diam axons
+// it was noted that in simulations that gets blasted they are similar at latter time points so simple way to insure
+// that an AP occurs
+ic.del=0 // new method plays a vec into amp, instead of del 1
+*/
+
+// the below copied from far below to make tstop available here
+tstop=10000 // run for ten seconds instead of 1 second
+ic_amp_vec=new Vector(tstop/dt)
+
+// original parameters of one IClamp pulse:
+ic_amp=0.1 // orig was 2 for reliability on different diameter axons
+ic_dur=0.2
+ic_del=1
+
+// because of interesting behavior at special_index = 21932 where
+// one AP gets through on second pulse and then is silent want to see
+// if also happens if the input train starts after a delay of 100ms
+//
+ic_del=100
+
+// create a train of 20 Hz current injections after a delay of 1 ms
+frequency=20 // Herz
+period=1/frequency
+proc make_pulses() {
+  ic_index=ic_del/dt // start at 1 ms
+  period_in_ms=(1/frequency)*1000
+  // *** for some numerical error reason the below shifts off the expected
+  // value at t = 3301, so use the below modulus method instead
+  //while (ic_index<ic_amp_vec.size()) {
+  //  // form the current injections pulses by 0.2 ms of 2 nA
+  //  for pulse_times=1, ic_dur/dt {
+  //      if (ic_index < ic_amp_vec.size()) { // stay inside simulation time
+  //        ic_amp_vec.x[ic_index]=ic_amp
+  //        ic_index = ic_index+1
+  //      }
+  //  }
+  //  // and 49.8 ms of zeros (that are already there)
+  //  ic_index = ic_index + (period_in_ms - ic_dur)/dt
+  //}
+
+//  just_one_pulse=-1 // set to false (0) after first pulse
+  while (ic_index< ic_amp_vec.size()) {
+    // everytime the period modulus of the index offset by the
+    // delay is 0 write a pulse:
+    //    if (((ic_index-ic_del/dt)%(period_in_ms/dt)==0 )&&just_one_pulse) {
+    if ((ic_index-ic_del/dt)%(period_in_ms/dt)==0 ) {
+      for pulse_times=1, ic_dur/dt {
+        if (ic_index < ic_amp_vec.size()) { // stay inside simulation time
+          ic_amp_vec.x[ic_index]=ic_amp
+          ic_index = ic_index+1
+        }
+      }
+//      just_one_pulse=0
+    }
+    ic_index = ic_index + 1
+  }
+}
+make_pulses() // set ic_del, ic_amp, ic_dur, frequency before calling
+t_vec.indgen(0 , tstop-dt, dt)
+
+/* // if want to view pulse train copy and paste these lines
+// onto the oc> prompt
+
+objref pulse_graph
+pulse_graph = new Graph()
+ic_amp_vec.plot(pulse_graph, t_vec)
+pulse_graph.exec_menu("View = plot")
+
+/**/

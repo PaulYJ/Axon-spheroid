@@ -1,0 +1,433 @@
+/*
+
+Alzheimers axon study to determine the effect of dystrophic structures
+on AP propagation.
+
+Detect the following phenomena in the axon: transmission of an AP from
+one side of the dysmorphic structure to the other was seen to either
+be
+
+1) delayed
+2) made into a double spike, or persistent firing
+3) blocked
+
+To detect these we will run models under varying settings. After
+initiating an AP at one end of the axon, detect APs at the other end
+defined by exceding -20 mV (arbitrary) in simulations that run for 1
+second.  Store results in an N-dimensional vector (parameter_1,
+parameter_2, parameter_3, parameter_x, num_of_APs_detected,
+time_of_APs time_for_first_transmitted_AP).  Actually if we have the
+times of the APs then we can know how many there are so just store the
+times.
+
+Possible output format:
+"data" subfolder with file names that reflect the parameters that were
+used to collect the column vector data within them
+
+CanDiam_X_ChannelStrength_Y_AxonDiam_Z_InputAPtimes.dat (AP times 100um before dystrophy)
+CanDiam_X_ChannelStrength_Y_AxonDiam_Z_OutputAPtimes.dat (AP times 100um after dystrophy)
+
+(Find normal time for AP crossing the 100 ums without a
+dystrophy. This should be similar to the small dystrophy size reported
+times.)
+
+To compute the various models create an array of vector parameters indexed by the processor number.
+On each processor choose those parameters to run a simulation and write the above CanDiam... data files.
+
+////////////////////////
+///
+/// compute the number of simulations needed
+///
+////////////////////////
+
+1) the size of the Can with the half way point being a 50 um2 surface area.
+area=PI*diam*L
+diam = area/(PI*L)
+*/
+func diam_as_func_of_area() {
+  return $1/(PI*5) // pass the area and assume the length is 5 um to find the area
+}
+
+// end_diam = diam_as_func_of_area(1500) // first study just went to 100, then to 1000, 1500
+// num_of_Can_diams = 0 //counts them up
+num_of_equivSphere_diams = 0
+start_diam = 0 // 50
+end_diam = 147.5 // 150
+//for (Can_diam=start_diam; Can_diam<=end_diam; Can_diam = Can_diam + end_diam/40) {
+for (sphereDiam=start_diam; sphereDiam<=end_diam; sphereDiam = sphereDiam + 2.5) {
+num_of_equivSphere_diams = num_of_equivSphere_diams + 1
+
+
+}
+/*
+2) /* Next inner loop the density of voltage gated channels goes from 0 to 100 % of the selected model
+*/
+dystrophy_active=1 // can be false (0) for sealed dystrophy, -1 for passive dystrophy and +1 for active dystrophy
+/**/
+// print "dystrophy_active = ", dystrophy_active
+num_of_densities = 0
+//intrinsic_subdivisions=33+1/3 // works out to (22 for .34) or 25 steps if start at 0.25
+intrinsic_start_factor = 0.3 // 0.7
+intrinsic_step = 0.1  // 
+intrinsic_end = 1.0 // 1.0
+// for (intrinsic_factor=intrinsic_start_factor; intrinsic_factor<=1; intrinsic_factor = intrinsic_factor +1/intrinsic_subdivisions) {
+for (intrinsic_factor=intrinsic_start_factor; intrinsic_factor<=intrinsic_end; intrinsic_factor = intrinsic_factor + intrinsic_step) {
+  num_of_densities = num_of_densities + 1
+}
+/*
+forsec "axon" { 
+  gbar_nax = intrinsic_factor * gbar_nax_orig
+  gkdrbar_kdr = intrinsic_factor * gkdrbar_kdr_orig
+}
+3) finally axon diameters 0.1, 0.3, 0.5, 1 (orig spec) Modify to include the orig diameter 0.3
+*/
+objref axon_diams
+axon_diams = new Vector()
+// axon_diams.append(0.1, 0.3, 0.5, 0.7, 0.9)
+// axon_diams.append(0.2, 0.25, 0.3, 0.35, 0.4)
+
+// axon_diams.append(0.3) // (0.1, 0.2, 0.3) //, 0.4, 0.5, 0.6, 0.7, 0.8) //(0.7, 0.8, 0.9) (1.0, 1.1, 1.2) (1.3, 1.4, 1.5)
+
+//for axon_index = 0, axon_diams.size()-1 {
+//  axon diam = axons_diams.x[axon_index]
+//}
+axon_diams.indgen(0.1, 0.9, 0.05)
+// print "number of connections = ", num_of_Can_diams * num_of_densities * axon_diams.size()
+// print " fix axon diameter to keep simulation runs under NSG limit 4096"
+
+num_of_stickDiams = 0
+//stickDiam_start = 0.3
+//stickDiam_end = 8.3
+//stickDiam_step = 0.5
+
+stickDiam_start = 3.8
+stickDiam_end = 3.8
+stickDiam_step = 0.5
+
+
+objref stickDiam_vec
+stickDiam_vec = new Vector()
+
+for (stickDiam = stickDiam_start; stickDiam <=stickDiam_end; stickDiam = stickDiam + stickDiam_step) {
+   num_of_stickDiams =  num_of_stickDiams + 1
+   stickDiam_vec.append(stickDiam)
+}
+
+////////////////////////
+///
+/// now loop again while assigning the parameters array of vectors;
+/// each vector in the array contains a unique simulation parameter set that is run on one processor
+///
+////////////////////////
+num_of_dystrophies=3 // -1, 0, 1 assignments of dystrophy_active
+// num_of_simulations = num_of_Can_diams * num_of_densities * axon_diams.size()
+num_of_simulations = num_of_equivSphere_diams * num_of_densities * axon_diams.size() * num_of_stickDiams * num_of_dystrophies
+// print "num_of_equivSphere_diams = ",num_of_equivSphere_diams,",  num_of_densities = ",num_of_densities
+// print "axon_diams.size() = ",axon_diams.size(), " num_of_stickDiams = ",num_of_stickDiams
+
+objref parameters[num_of_simulations]
+// print "declared parameters[",num_of_simulations,"]"
+simulation_index = 0
+// for (Can_diam=start_diam; Can_diam<=end_diam; Can_diam = Can_diam + end_diam/40) {
+for dystrophy_active=-1,1 { // runs through -1 passive, 0 sealed, 1 active
+for (sphereDiam=start_diam; sphereDiam<=end_diam; sphereDiam = sphereDiam + 2.5) {
+
+  // Next inner loop the density of voltage gated channels goes from 0 to 100 % of the selected model
+  // intrinsic_sudivisions defined above
+  // intrinsic_start_factor defined above
+  // for (intrinsic_factor=intrinsic_start_factor; intrinsic_factor<=1; intrinsic_factor = intrinsic_factor +1/intrinsic_subdivisions) {
+  for (intrinsic_factor=intrinsic_start_factor; intrinsic_factor<=intrinsic_end; intrinsic_factor = intrinsic_factor + intrinsic_step) {
+
+    for axon_index = 0, axon_diams.size()-1 {
+      for (stickDiam = stickDiam_start; stickDiam<=stickDiam_end; stickDiam = stickDiam + stickDiam_step) {
+        // print "simulation_index = ",simulation_index
+        parameters[simulation_index] = new Vector()
+        parameters[simulation_index].append(sphereDiam, intrinsic_factor, axon_diams.x[axon_index], stickDiam, dystrophy_active)
+        //  axon diam = axons_diams.x[axon_index]
+        simulation_index = simulation_index+1  
+      }
+    }
+  }
+}
+}
+////////////////////////
+///
+/// create the simulations morphology
+///
+////////////////////////
+load_file("simple_axon.hoc")
+// load_file("runctrl_plus_graph.ses") // optional graph.  comment out on parallel machine
+
+////////////////////////
+///
+/// set up the axon stimulation and recording of the AP times
+///
+////////////////////////
+objref ic, ic_amp_vec
+axon ic = new IClamp(0)
+ic.dur=1e9 // new method plays a vec into amp, instead of dur 0.2
+ic.amp=2 // nA use 20x orig value 0.1 which will blast little diam axons and create an AP in the big diam axons
+// it was noted that in simulations that gets blasted they are similar at latter time points so simple way to insure
+// that an AP occurs
+ic.del=0 // new method plays a vec into amp, instead of del 1
+
+// the below copied from far below to make tstop available here
+tstop=10000 // run for ten seconds instead of 1 second
+ic_amp_vec=new Vector(tstop/dt)
+
+// original parameters of one IClamp pulse:
+ic_amp=2
+ic_dur=0.2
+ic_del=1
+
+// create a train of 20 Hz current injections after a delay of 1 ms
+frequency=20 // Herz
+period=1/frequency
+proc make_pulses() {
+  ic_index=ic_del/dt // start at 1 ms
+  period_in_ms=(1/frequency)*1000
+  // *** for some numerical error reason the below shifts off the expected
+  // value at t = 3301, so use the below modulus method instead
+  //while (ic_index<ic_amp_vec.size()) {
+  //  // form the current injections pulses by 0.2 ms of 2 nA
+  //  for pulse_times=1, ic_dur/dt {
+  //      if (ic_index < ic_amp_vec.size()) { // stay inside simulation time
+  //        ic_amp_vec.x[ic_index]=ic_amp
+  //        ic_index = ic_index+1
+  //      }
+  //  }
+  //  // and 49.8 ms of zeros (that are already there)
+  //  ic_index = ic_index + (period_in_ms - ic_dur)/dt
+  //}
+
+  just_one_pulse=-1 // set to false (0) after first pulse
+  while (ic_index< ic_amp_vec.size()) {
+    // everytime the period modulus of the index offset by the delay is 0 write a pulse:
+    if (((ic_index-ic_del/dt)%(period_in_ms/dt)==0 )&&just_one_pulse) {
+      for pulse_times=1, ic_dur/dt {
+        if (ic_index < ic_amp_vec.size()) { // stay inside simulation time
+          ic_amp_vec.x[ic_index]=ic_amp
+          ic_index = ic_index+1
+        }
+      }
+      just_one_pulse=0
+    }
+    ic_index = ic_index + 1
+  }
+}
+make_pulses() // set ic_del, ic_amp, ic_dur, frequency before calling
+
+// in case want to see pulses with commands like
+// objref g
+// g = new Graph()
+// ic_amp_vec.plot(g, t_vec, 1, 1)
+
+objref t_vec
+t_vec=new Vector(tstop/dt)
+t_vec=new Vector(tstop/dt-1)
+t_vec.indgen(0 , tstop-dt, dt)
+
+ic_amp_vec.play(&ic.amp, dt) // plays
+
+objref pre_spike, post_spike // pre and post refer to before and after the dystrophy
+objref pre_netcon, post_netcon, nil
+
+pre_spike = new Vector(0)
+post_spike = new Vector()
+
+// these code elements with bug (L-100 should have just been
+// 100) where x value beyond 
+// endpoints caused x values to be effectively 0, 1
+// so just use those although it would be interesting to 
+// study also at +/- 100 from dystrophy (Can)
+//axon pre_netcon = new NetCon(&v(.5-(L-100)/L), nil)
+//axon post_netcon = new NetCon(&v(.5+(L-100)/L), nil)
+axon pre_netcon = new NetCon(&v(0), nil)
+axon post_netcon = new NetCon(&v(1), nil)
+
+pre_netcon.record(pre_spike)
+post_netcon.record(post_spike)
+
+////////////////////////
+///
+/// set the unique parameters for this simulation based on the processor id
+///
+////////////////////////
+// Note: currently there are 3960 simulations
+
+// store the max conductance densities to take fractions thereof later
+axon {
+  gbar_nax_orig = gbar_nax
+  gkdrbar_kdr_orig = gkdrbar_kdr
+}
+
+// id=490 // comment out this line if on parallel machine
+objref axon_0_trace, axon_p5_trace, axon_1_trace, can_trace
+
+// testing code : for (id=480; id<490; id = id + 1) {
+// serial runs:
+// for (id=0; id<num_of_simulations; id = id + 1) {
+// for NSG
+PWManager[0].close(1) // closes voltage graph
+///if (id<num_of_simulations) { // this processor id is set from init.py
+
+// for id=0, 0 {
+// test run with just one 1 simulation or
+for id=0, num_of_simulations-1 { // this processor id is set here
+//for id=0,0 { // this processor id is set here
+
+// because you can't allocate an exact number like the current 1040
+// num_of_simulations number of processors the extra processors are
+// idle
+objref axon_0_trace, axon_p5_trace, axon_1_trace, can_trace
+strdef APinputTimesFilename
+strdef APoutputTimesFilename
+strdef folder
+load_file("write_vec.hoc")
+// print "starting main loop"
+// these two lines were for breaking the id ranges up to run on louise
+// for (id_index=0; id_index<range_ids.size(); id_index = id_index +1) {
+//  id = range_ids.x[id_index]
+  //CanDiam = parameters[id].x[0]
+  sphereDiam = parameters[id].x[0]
+  if (sphereDiam==0) {sphereDiam=1e-6}
+  ChannelStrength = parameters[id].x[1]
+  AxonDiam = parameters[id].x[2]
+  stickDiam = parameters[id].x[3]
+  dystrophy_active = parameters[id].x[4]
+////////////////////////
+///
+/// make channels appropriate for this processor id
+///
+////////////////////////
+
+  //assign the CanDiam based on the equiv sphereDiam
+  Stick { CanLength = L } // handy to have CanLength
+  CanDiam = 4 * (sphereDiam/2)^2 / CanLength
+
+  Can { diam = CanDiam }
+  // print "setting axon params"
+  axon {
+    gbar_nax = gbar_nax_orig * ChannelStrength
+    gkdrbar_kdr = gkdrbar_kdr_orig * ChannelStrength
+    diam = AxonDiam
+  }
+//   print "set axon params"
+
+  if (dystrophy_active) {
+    // actually either active or passive here
+    Can {
+      if (dystrophy_active==-1) {
+        gbar_nax = 0
+        gkdrbar_kdr = 0
+        g_pas=3.16228e-05 // for passive only
+      } else {
+        gbar_nax = gbar_nax_orig * ChannelStrength
+        gkdrbar_kdr = gkdrbar_kdr_orig * ChannelStrength
+        g_pas=3.16228e-05
+      }
+    }
+    Stick {
+      if (dystrophy_active==-1) {
+        gbar_nax = 0
+        gkdrbar_kdr = 0
+        g_pas=3.16228e-05 // for passive only
+      } else {
+        gbar_nax = gbar_nax_orig * ChannelStrength
+        gkdrbar_kdr = gkdrbar_kdr_orig * ChannelStrength
+        g_pas=3.16228e-05 // for passive only
+      }
+    }
+  } else {
+    Can {
+      gbar_nax = 0
+      gkdrbar_kdr = 0
+      g_pas = 0
+    }
+    Stick {
+      gbar_nax = 0
+      gkdrbar_kdr = 0
+      g_pas = 0
+    }
+  }
+
+  //  Stick { diam = AxonDiam } // share the axon diameter
+  Stick { diam = stickDiam }
+
+  // by hand for special cases on serial computer (see param_ctrl.hoc
+  // which is started by mosinit.hoc
+
+// by hand for special cases on serial computer (see param_ctrl.hoc
+// which is started by mosinit.hoc
+
+////////////////////////
+///
+/// setup recordings of voltage traces
+///
+////////////////////////
+
+  axon_0_trace = new Vector()
+  axon_p5_trace = new Vector()
+  axon_1_trace = new Vector()
+  can_trace = new Vector()
+
+  axon_0_trace.record(&axon.v(0))
+  axon_p5_trace.record(&axon.v(0.5))
+  axon_1_trace.record(&axon.v(1))
+  can_trace.record(&Can.v(0.5))
+
+  ////////////////////////
+  ///
+  /// run the simulation
+  ///
+  ////////////////////////
+
+  tstop=10000 // run for ten seconds instead of 1 second
+  init()
+  run()
+
+  ////////////////////////
+  ///
+  /// store the result
+  ///
+  ////////////////////////
+
+
+  sphereDiam = parameters[id].x[0]
+  ChannelStrength = parameters[id].x[1]
+  AxonDiam = parameters[id].x[2]
+  stickDiam = parameters[id].x[3]
+  dystrophy_active = parameters[id].x[4]
+
+  if (dystrophy_active==-1) { folder = "passive/" }
+
+  if (dystrophy_active==0) { folder = "sealed/" }
+
+  if (dystrophy_active==1) { folder = "active/" }
+
+  sprint(APinputTimesFilename,"%ssphereDiam_%g_ChannelStrength_%g_AxonDiam_%g_InputAPtimes_%g_stickDiam.dat",folder,sphereDiam, ChannelStrength, AxonDiam, stickDiam)
+  sprint(APoutputTimesFilename,"%ssphereDiam_%g_ChannelStrength_%g_AxonDiam_%g_OutputAPtimes_%g_stickDiam.dat",folder,sphereDiam, ChannelStrength, AxonDiam, stickDiam)
+
+  // print APinputTimesFilename, ", " , APoutputTimesFilename
+  write_vec(APinputTimesFilename, pre_spike)
+  write_vec(APoutputTimesFilename, post_spike)
+
+  // store these vectors of recorded voltages with unique filenames related to the parameter settings
+  // Voltage vectors: axon_0_trace, axon_p5_trace, axon_1_trace, can_trace
+
+} // can move loop below next lines and uncomment if want more data to be printed
+strdef axon_0_trace_filename, axon_p5_trace_filename, axon_1_trace_filename, can_trace_filename
+
+sprint(axon_0_trace_filename,"axon_0_trace_%g_%g_%g_%g.dat",sphereDiam, ChannelStrength, AxonDiam, stickDiam)
+sprint(axon_p5_trace_filename,"axon_p5_trace_%g_%g_%g_%g.dat",sphereDiam, ChannelStrength, AxonDiam, stickDiam)
+sprint(axon_1_trace_filename,"axon_1_trace_%g_%g_%g_%g.dat",sphereDiam, ChannelStrength, AxonDiam, stickDiam)
+sprint(can_trace_filename, "can_trace_%g_%g_%g_%g.dat",sphereDiam, ChannelStrength, AxonDiam, stickDiam)
+/* don't write all these traces - too much
+write_vec(axon_0_trace_filename,axon_0_trace)
+write_vec(axon_p5_trace_filename,axon_p5_trace)
+write_vec(axon_1_trace_filename,axon_1_trace)
+write_vec(can_trace_filename,can_trace)
+*/
+
+// quit() //  doesn't seem to be required however its what we want here - remove for serial runs
+

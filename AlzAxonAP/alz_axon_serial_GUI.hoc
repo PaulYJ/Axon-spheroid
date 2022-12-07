@@ -1,0 +1,303 @@
+/*
+
+Alzheimers axon study to determine the effect of dystrophic structures
+on AP propagation.
+
+Detect the following phenomena in the axon: transmission of an AP from
+one side of the dysmorphic structure to the other was seen to either
+be
+
+1) delayed
+2) made into a double spike, or persistent firing
+3) blocked
+
+To detect these we will run models under varying settings. After
+initiating an AP at one end of the axon, detect APs at the other end
+defined by exceding 0 mV (arbitrary) in simulations that run for 10
+seconds.
+
+This GUI version of the code reproduces Extended Data Figure 2a and
+contains other related studies.
+
+*/
+func diam_as_func_of_area() {
+  return $1/(PI*5) // pass the area and assume the length is 5 um to find diam
+}
+dystrophy_active=1 // can be false (0) for sealed dystrophy, -1 for passive dystrophy and +1 for active dystrophy
+forsec "axon" { 
+  gbar_nax = intrinsic_factor * gbar_nax_orig
+  gkdrbar_kdr = intrinsic_factor * gkdrbar_kdr_orig
+}
+////////////////////////
+///
+/// create the simulations morphology
+///
+////////////////////////
+load_file("simple_axon.hoc")
+objref vbox
+vbox= new VBox()
+vbox.intercept(1)
+load_file("dystrophy_shape.ses")
+load_file("runctrl_plus_graph2.ses") // vbox.intercept(0) happens in here
+
+dys_shape_graph.exec_menu("Show Diam")
+
+////////////////////////
+///
+/// set up the axon stimulation and recording of the AP times
+///
+////////////////////////
+objref ic, ic_amp_vec
+axon ic = new IClamp(0)
+// it was noted that in simulations that get blasted with a short large current
+// clamp pulse, that they are similar at latter time points so simple way to insure
+// that an AP occurs is to stimulte little diam axons with the same amount needed
+// for big diam axons when iterating over axon sizes.  For examining fixed axon size
+// and creating paper figures it is OK to adjust current clamp amplitude to one that
+// produces an AP at one end of the axon without artifacts (without a short time
+// large transient voltage)
+
+ic.del=100 // new method plays a vec into amp, instead of del 1
+load_file("IClamp_GUI.ses")
+
+// parameters of one IClamp pulse delivered to start AP at one end of axon:
+ic_amp=0.02
+ic_dur=1
+ic_del=100
+vbox.intercept(0)
+vbox.map("PAAS over left green, right end purple V vs t", 350, 200, 400, 500)
+
+objref pre_spike, post_spike // pre and post refer to before and after the dystrophy
+objref pre_netcon, post_netcon, nil
+
+pre_spike = new Vector(0)
+post_spike = new Vector()
+
+// default v threshold is 0 mV for event (AP) detection
+axon pre_netcon = new NetCon(&v(0), nil)
+axon post_netcon = new NetCon(&v(1), nil)
+
+pre_netcon.record(pre_spike)
+post_netcon.record(post_spike)
+
+
+// store the max conductance densities to take fractions thereof later
+axon {
+  gbar_nax_orig = gbar_nax
+  gkdrbar_kdr_orig = gkdrbar_kdr
+}
+
+objref axon_0_trace, axon_p5_trace, axon_1_trace, can_trace
+
+/*
+// Paul Yuan selection row 581 in results matrix (22205)
+sphereDiam = 107.5
+ChannelStrength = 0.5
+AxonDiam = 0.25
+stickDiam =  3.8 // thick stick batch
+dystrophy_active = 1
+*/
+// special_id = 22205
+
+// special_id 19177 equivalent to below example
+/* sphereDiam = 52.5
+ChannelStrength = 0.3
+AxonDiam = 0.15
+stickDiam = 3.8 // thick stick batch
+dystrophy_active = 1
+*/
+
+objref axon_0_trace, axon_p5_trace, axon_1_trace, can_trace
+strdef APinputTimesFilename
+strdef APoutputTimesFilename
+strdef folder
+load_file("write_vec.hoc")
+sphereDiam = 29
+// if (sphereDiam==0) {sphereDiam=1e-6}
+ChannelStrength = 0.3
+AxonDiam = 0.15
+stickDiam = 3.8 // allows to simulate multiple PAAS's with one large one
+dystrophy_active = 1 // 1 active, 0 sealed, -1 passive (leak) channel(s) in PAAAS
+
+////////////////////////
+///
+/// make channels appropriate for this processor id
+///
+////////////////////////
+
+  //assign the CanDiam based on the equiv sphereDiam
+  Stick { CanLength = L } // handy to have CanLength
+  // start with
+  // 4*PI*sphereR^2 = CanDiam*PI*CanLength
+  // divide both sides by PI * CanLength and switch sides to get
+  CanDiam = 4 * (sphereDiam/2)^2 / CanLength
+
+  Can { diam = CanDiam }
+  // print "setting axon params"
+  axon {
+    gbar_nax = gbar_nax_orig * ChannelStrength
+    gkdrbar_kdr = gkdrbar_kdr_orig * ChannelStrength
+    diam = AxonDiam
+  }
+//   print "set axon params"
+
+  if (dystrophy_active) {
+    // actually either active or passive here
+    Can {
+      if (dystrophy_active==-1) {
+        gbar_nax = 0
+        gkdrbar_kdr = 0
+        g_pas=3.16228e-05 // for passive only
+      } else {
+        gbar_nax = gbar_nax_orig * ChannelStrength
+        gkdrbar_kdr = gkdrbar_kdr_orig * ChannelStrength
+        g_pas=3.16228e-05
+      }
+    }
+    Stick {
+      if (dystrophy_active==-1) {
+        gbar_nax = 0
+        gkdrbar_kdr = 0
+        g_pas=3.16228e-05 // for passive only
+      } else {
+        gbar_nax = gbar_nax_orig * ChannelStrength
+        gkdrbar_kdr = gkdrbar_kdr_orig * ChannelStrength
+        g_pas=3.16228e-05 // for passive only
+      }
+    }
+  } else {
+    Can {
+      gbar_nax = 0
+      gkdrbar_kdr = 0
+      g_pas = 0
+    }
+    Stick {
+      gbar_nax = 0
+      gkdrbar_kdr = 0
+      g_pas = 0
+    }
+  }
+
+  //  Stick { diam = AxonDiam } // if wanted to share the axon diameter
+  Stick { diam = stickDiam }
+
+////////////////////////
+///
+/// setup recordings of voltage traces
+///
+////////////////////////
+
+  axon_0_trace = new Vector()
+  axon_p5_trace = new Vector()
+  axon_1_trace = new Vector()
+  can_trace = new Vector()
+
+  axon_0_trace.record(&axon.v(0))
+  axon_p5_trace.record(&axon.v(0.5))
+  axon_1_trace.record(&axon.v(1))
+  can_trace.record(&Can.v(0.5))
+
+  ////////////////////////
+  ///
+  /// run the simulation
+  ///
+  ////////////////////////
+
+  tstop=150 // run shorter for GUI than the usual 10000
+  init()
+  run()
+
+  ////////////////////////
+  ///
+  /// store the result
+  ///
+  ////////////////////////
+
+  if (dystrophy_active==-1) { folder = "passive/" }
+
+  if (dystrophy_active==0) { folder = "sealed/" }
+
+  if (dystrophy_active==1) { folder = "active/" }
+
+  sprint(APinputTimesFilename,"%ssphereDiam_%g_ChannelStrength_%g_AxonDiam_%g_InputAPtimes_%g_stickDiam.dat",folder,sphereDiam, ChannelStrength, AxonDiam, stickDiam)
+  sprint(APoutputTimesFilename,"%ssphereDiam_%g_ChannelStrength_%g_AxonDiam_%g_OutputAPtimes_%g_stickDiam.dat",folder,sphereDiam, ChannelStrength, AxonDiam, stickDiam)
+
+  // print APinputTimesFilename, ", " , APoutputTimesFilename
+  write_vec(APinputTimesFilename, pre_spike)
+  write_vec(APoutputTimesFilename, post_spike)
+
+  // store these vectors of recorded voltages with unique filenames related to the parameter settings
+  // Voltage vectors: axon_0_trace, axon_p5_trace, axon_1_trace, can_trace
+
+
+strdef axon_0_trace_filename, axon_p5_trace_filename, axon_1_trace_filename, can_trace_filename
+
+sprint(axon_0_trace_filename,"%saxon_0_trace_%g_%g_%g_%g.dat",folder, sphereDiam, ChannelStrength, AxonDiam, stickDiam)
+sprint(axon_p5_trace_filename,"%saxon_p5_trace_%g_%g_%g_%g.dat",folder, sphereDiam, ChannelStrength, AxonDiam, stickDiam)
+sprint(axon_1_trace_filename,"%saxon_1_trace_%g_%g_%g_%g.dat",folder, sphereDiam, ChannelStrength, AxonDiam, stickDiam)
+sprint(can_trace_filename, "%scan_trace_%g_%g_%g_%g.dat",folder, sphereDiam, ChannelStrength, AxonDiam, stickDiam)
+// do instead of don't write all these traces - too much
+write_vec(axon_0_trace_filename,axon_0_trace)
+write_vec(axon_p5_trace_filename,axon_p5_trace)
+write_vec(axon_1_trace_filename,axon_1_trace)
+write_vec(can_trace_filename,can_trace)
+
+objref t_vec
+t_vec=new Vector(tstop/dt)
+t_vec=new Vector(tstop/dt-1)
+t_vec.indgen(0 , tstop-dt, dt)
+write_vec("active/t_vec.dat",t_vec)
+
+// procedures for visualization of PAAS (in the code called Can as in tomato soup can)
+// switch to  "square" NEURON shape plot visualization, closer to spherical representation
+// PAAS2square() and PAAS2hammerhead() are sister functions that transform the Can morphology
+// for visualization purposes (PAAS2square is especailly for visualization while the other
+// morphology was used to iterate over a single parameter (diam) in earlier simulations).
+proc PAAS2square() {
+  Can { diameter=sqrt(diam*L)
+  old_diam = diam
+  old_L = L
+  diam=diameter
+  L=diameter
+  }
+}
+// Elongated representation convenient for changing size of dystrophy and
+// although looks like the hammer in a a hammerhead shark, is euivalent mathematically
+// to sphere of the same area (true only for a nseg=1, i.e. a single compartment).
+// Can verify equivalence by running a simulation, executing PAAS2square(), and then
+// rerunning the simulation to see v trajectory is the same as before.
+// Switch back to original representation with PAAS2hammerhead()
+
+
+proc PAAS2hammerhead() {
+  Can {diam=old_diam L=old_L}    
+}
+
+// pass sphereDiam to have CanDiam returned
+// 4*PI*sphereR^2 = CanDiam*PI*CanLength
+// divide both sides by PI * CanLength and switch sides to get
+//  CanDiam = 4 * (sphereDiam/2)^2 / CanLength
+// SphereDiam2CanDiam and CanDiam2SphereDiam are sister functions
+func SphereDiam2CanDiam() {
+// retrieve current Can L
+Can current_Can_L = L
+sphereDiam = $1
+CanDiam = 4 * (sphereDiam/2)^2 / current_Can_L
+return CanDiam
+}
+
+// pass a CanDiam to find SphereDiam
+
+func CanDiam2SphereDiam() {
+// retrieve current Can L
+Can current_Can_L = L
+tmp_CanDiam = $1
+// start with
+// 4*PI*sphereR^2 = CanDiam*PI*CanLength
+// 4*sphereR^2 = CanDiam*CanLength
+// sphereR^2 = CanDiam*CanLength/4
+sphereR = sqrt(tmp_CanDiam * current_Can_L/4)
+return 2*sphereR
+}
+// PWManager[0].hide(5) 
+PAAS2square()

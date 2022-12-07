@@ -1,0 +1,28 @@
+objectvar save_window_, rvp_
+objectvar scene_vector_[4]
+objectvar ocbox_, ocbox_list_, scene_, scene_list_
+{ocbox_list_ = new List()  scene_list_ = new List()}
+{
+ocbox_ = new VBox()
+ocbox_list_.prepend(ocbox_)
+ocbox_.intercept(1)
+}
+{
+ocbox_.intercept(0)
+}
+objref ocbox_
+{
+xpanel("IClamp[0] at axon(0)", 0)
+xlabel("IClamp[0] at axon(0)")
+ic.del = 100
+xvalue("del","ic.del", 1,"", 0, 1 )
+ic.dur = 1
+xvalue("dur","ic.dur", 1,"", 0, 1 )
+ic.amp = 0.02
+xvalue("amp","ic.amp", 1,"", 0, 1 )
+ic.i = 0
+xvalue("i","ic.i", 0,"", 0, 1 )
+xpanel(350,457)
+}
+objectvar scene_vector_[1]
+{doNotify()}
